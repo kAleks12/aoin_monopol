@@ -7,9 +7,9 @@ from deap import base, creator, tools, algorithms
 from faker import Faker
 from colorama import Fore, Style
 
-from group import Group, Types, Field
+from structures import Group, Types, Field
 
-size = 8
+size = 2
 faker = Faker()
 group_names = [faker.street_name() for _ in range(math.floor(((size * 4) - 8) // 3) + 1)]
 field_names = [faker.user_name() for _ in range(len(group_names) * 3)]
@@ -70,6 +70,7 @@ def display_board(board: list[Field]):
 
     # Determine the size of each side
     side_length = len(board) // 4
+    side_length = size + 2
 
     # Helper function to create a rectangle for one field
     def format_field(field):
@@ -90,10 +91,10 @@ def display_board(board: list[Field]):
         return lines
 
     # Split the board into sections
-    top_row = board[:side_length]
-    right_column = board[side_length + 1:2 * side_length - 1]
-    bottom_row = board[2 * side_length:3 * side_length][::-1]
-    left_column = board[3 * side_length + 1:-1][::-1]
+    top_row = board[:size+2]
+    right_column = board[size+2:len(board) // 2]
+    bottom_row = board[len(board) // 2:len(board) // 2 + size + 2][::-1]
+    left_column = board[len(board) // 2 + size + 2:len(board)][::-1]
 
     # Generate text for each row
     top_row_lines = ["".join([format_field(field)[line] for field in top_row]) for line in range(field_height)]
@@ -202,7 +203,7 @@ def evaluate(board):
 if __name__ == "__main__":
     boards = []
     values = []
-    for _ in range(10):
+    for _ in range(1000000):
         # print(calculate_balance_score(val))
         board = generate_board()
 
