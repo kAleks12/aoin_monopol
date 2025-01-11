@@ -9,7 +9,7 @@ from colorama import Fore, Style
 
 from structures import Group, Types, Field
 
-size = 2
+size = 4
 faker = Faker()
 group_names = [faker.street_name() for _ in range(math.floor(((size * 4) - 8) // 3) + 1)]
 field_names = [faker.user_name() for _ in range(len(group_names) * 3)]
@@ -30,7 +30,7 @@ def generate_board():
     specials = Group(Types.SPECIAL, "Szansy")
 
     for i in range(4):
-        new_fields.append(Field(rails, f"Kolej_{i}"))
+        new_fields.append(Field(rails, f"Kolej_{i}", 400))
         new_fields.append(Field(corners, corner_seq[i]))
         new_fields.append(Field(specials, special_seq[i]))
 
@@ -39,10 +39,10 @@ def generate_board():
     members = 0
     while no_fields < max_fields:
         if group is None:
-            group = Group(Types.CITY, groups.pop())
+            group = Group(Types.CITY, groups.pop(), random.randint(1, len(group_names) * 2) * 100)
             members = 0
 
-        new_fields.append(Field(group, fields.pop()))
+        new_fields.append(Field(group, fields.pop(), random.randint(1, len(field_names) * 2) * 100))
         members += 1
         no_fields += 1
 
@@ -59,7 +59,7 @@ def display_board(board: list[Field]):
         raise ValueError("The board must have a number of fields divisible by 4 for a rectangular layout.")
 
     field_width = 25
-    field_height = 5
+    field_height = 6
 
     group_colors = {
         "RAILROAD": Fore.GREEN,
@@ -84,9 +84,14 @@ def display_board(board: list[Field]):
             lines.append(color + "|" + "---".center(field_width - 2) + "|" + Style.RESET_ALL)  # Empty line
 
         lines.append(
-            color + "|" + f"{field.id}".center(field_width - 2) + "|" + Style.RESET_ALL)  # ID in the center
+            color + "|" + f"{field.id} ({field.buy_cost})".center(
+                field_width - 2) + "|" + Style.RESET_ALL if field.buy_cost is not None else color + "|" + f"{field.id}".center(
+                field_width - 2) + "|" + Style.RESET_ALL
+        )
         lines.append(
             color + "|" + f"Gr({field.group.name})".center(field_width - 2) + "|" + Style.RESET_ALL)  # Group name
+        lines.append(
+            color + "|" + f"Property cost: {field.group.property_cost}".center(field_width - 2) + "|" + Style.RESET_ALL)  # Property cost
         lines.append(color + "+" + "-" * (field_width - 2) + "+" + Style.RESET_ALL)  # Bottom border
         return lines
 
@@ -115,27 +120,19 @@ def display_board(board: list[Field]):
     print("\n".join(bottom_row_lines))
 
 
-# Evaluation function
 def calculate_balance_score(board):
-    # Count the occurrences of each property type
-    property_counts = {
-        "Street": board.count("Street"),
-        "Chance": board.count("Chance"),
-        "Railroad": board.count("Railroad"),
-        "Utility": board.count("Utility")
-    }
+    city_fields = [field for field in board if field.group.type == Types.CITY]
 
-    # Total number of properties (40 spaces on the board)
-    total_properties = len(board)
+    groups = {}
+    for field in city_fields:
+        if field.group.name not in groups:
+            groups[field.group.name] = []
+        groups[field.group.name].append(field.buy_cost)
 
-    # Calculate the target count for each property type (balanced distribution)
-    target_count = total_properties / len(property_counts)
-
-    # Calculate the balance score based on the deviation from target count
-    balance_score = 0
-    for property_type, count in property_counts.items():
-        # Penalize large deviations from the target count
-        balance_score -= abs(count - target_count)
+    group_averages = {group: sum(costs) / len(costs) for group, costs in groups.items()}
+    group_deviation = np.std(list(group_averages.values()))
+    intra_group_deviation = sum(np.std(costs) for _, costs in groups.items())
+    balance_score = group_deviation + intra_group_deviation
 
     return balance_score
 
@@ -203,15 +200,21 @@ def evaluate(board):
 if __name__ == "__main__":
     boards = []
     values = []
-    for _ in range(1000000):
+    values2 = []
+    for _ in range(100000):
         # print(calculate_balance_score(val))
         board = generate_board()
 
         boards.append(board)
         values.append(calculate_aesthetic_score(board))
+        values2.append(calculate_balance_score(board))
     values = np.array(values)
     print(f"Min: {np.min(values)}, Max: {np.max(values)}, Std: {np.std(values)}, Mean: {np.mean(values)}")
     display_board(boards[np.argmin(values)])
+    print("============================================================================")
+    values2 = np.array(values2)
+    print(f"Min: {np.min(values2)}, Max: {np.max(values2)}, Std: {np.std(values2)}, Mean: {np.mean(values2)}")
+    display_board(boards[np.argmin(values2)])
 
     # creator.create("FitnessMulti", base.Fitness, weights=(1.0, -1.0))  # First objective (maximize), second (minimize)
     # creator.create("Individual", list, fitness=creator.FitnessMulti)
